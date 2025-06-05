@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" script_class="ShaderMaterial" format=3 uid="uid://b8qnw0hr3a6bk"]
+
+[ext_resource type="Shader" path="res://shaders/voxel_terrain.gdshader" id="1_3e1k4"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_3e1k4")
+shader_parameter/voxel_scale = 1.0
+shader_parameter/texture_scale = 1.0
+shader_parameter/grass_height = 0.7
+shader_parameter/stone_height = 0.9
