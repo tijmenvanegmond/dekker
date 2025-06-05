@@ -22,3 +22,11 @@ This is a Godot 4.4 project focused on experimenting with voxel shaders and proc
 - Use compute shaders when appropriate for chunk generation
 - Implement proper LOD (Level of Detail) systems
 - Consider GPU instancing for voxel rendering
+
+## Development Workflow
+- Use the VS Code task system to run the Godot project
+- Use the run_vs_code_task tool to execute build/run tasks instead of manual terminal commands
+- Project has configured tasks for building and running Godot scenes
+
+# Tool ussage
+- Use playwright-mcp or simple-browser to search the godot documentation
