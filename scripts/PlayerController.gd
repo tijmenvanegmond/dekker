@@ -1,7 +1,7 @@
 class_name PlayerController
 extends CharacterBody3D
 
-# Advanced player controller with world editing capabilities
+# Advanced player controller with world editing capabilities and action system
 @export_group("Movement")
 @export var speed: float = 5.0
 @export var jump_velocity: float = 4.5
@@ -23,6 +23,10 @@ extends CharacterBody3D
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var camera_bob_time: float = 0.0
 var is_moving: bool = false
+var movement_input: Vector3 = Vector3.ZERO  # Used by movement actions
+
+# Action system
+var action_system: Dictionary = {}
 
 @onready var camera: Camera3D = $Camera3D
 @onready var voxel_world: VoxelWorld = get_parent()
@@ -33,6 +37,10 @@ signal edit_mode_changed(enabled: bool)
 
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	
+	# Initialize action system
+	_setup_action_system()
+	
 	# Connect signals if voxel_world exists
 	if voxel_world and voxel_world is VoxelWorld:
 		voxel_placed.connect(_on_voxel_placed)
@@ -51,21 +59,15 @@ func _input(event: InputEvent):
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		else:
 			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	
-	# Toggle edit mode
-	if event.is_action_pressed("toggle_edit_mode"):
-		toggle_edit_mode()
-	
-	# World editing (only when in edit mode)
-	if edit_mode and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
-		if event.is_action_pressed("place_voxel"):
-			try_place_voxel()
-		elif event.is_action_pressed("remove_voxel"):
-			try_remove_voxel()
-		elif event.is_action_pressed("cycle_voxel_type"):
-			cycle_voxel_type()
 
 func _physics_process(delta: float):
+	# Reset movement input
+	movement_input = Vector3.ZERO
+	
+	# Execute actions
+	_execute_actions(delta)
+	
+	# Apply movement and physics
 	handle_movement(delta)
 	handle_camera_effects(delta)
 
@@ -74,25 +76,8 @@ func handle_movement(delta: float):
 	if not is_on_floor():
 		velocity.y -= gravity * delta
 	
-	# Handle jump
-	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = jump_velocity
-	
-	# Get input direction using proper movement actions
-	var input_dir := Vector2.ZERO
-	if Input.is_action_pressed("move_left"):
-		input_dir.x -= 1.0
-	if Input.is_action_pressed("move_right"):
-		input_dir.x += 1.0
-	if Input.is_action_pressed("move_forward"):
-		input_dir.y -= 1.0
-	if Input.is_action_pressed("move_backward"):
-		input_dir.y += 1.0
-	
-	input_dir = input_dir.normalized()
-	
-	# Convert input to world direction
-	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+	# Movement input is now handled by action system
+	var direction := movement_input.normalized()
 	
 	# Apply movement
 	if direction != Vector3.ZERO:
@@ -153,6 +138,16 @@ func get_voxel_type_name(voxel_type: int) -> String:
 		4: return "Ore"
 		_: return "Unknown"
 
+# Action system helper methods
+func _handle_voxel_placement():
+	try_place_voxel()
+
+func _handle_voxel_removal():
+	try_remove_voxel()
+
+func _cycle_voxel_type():
+	cycle_voxel_type()
+
 func try_place_voxel():
 	var hit_result := cast_ray_to_world()
 	if hit_result.has("position"):
@@ -190,11 +185,67 @@ func _on_voxel_removed(_pos: Vector3):
 
 # Debug function to show current state
 func get_debug_info() -> Dictionary:
-	return {
+	var info = {
 		"position": global_position,
 		"velocity": velocity,
 		"is_on_floor": is_on_floor(),
 		"edit_mode": edit_mode,
 		"voxel_type": get_voxel_type_name(voxel_placement_type),
-		"mouse_mode": Input.get_mouse_mode()
+		"mouse_mode": Input.get_mouse_mode(),
+		"movement_input": movement_input,
+		"action_system": "Inline Action System Active"
 	}
+	
+	return info
+
+func _setup_action_system():
+	# Simple action system without class dependencies
+	action_system = {
+		"movement_actions": ["move_forward", "move_backward", "move_left", "move_right"],
+		"jump_action": "jump",
+		"edit_actions": ["toggle_edit_mode", "place_voxel", "remove_voxel", "cycle_voxel_type"]
+	}
+
+func _execute_actions(_delta: float):
+	# Handle movement actions
+	var camera_basis = camera.global_basis
+	
+	# Forward/backward movement
+	if Input.is_action_pressed("move_forward"):
+		var forward = camera_basis * Vector3.FORWARD
+		forward.y = 0
+		movement_input += forward.normalized()
+	
+	if Input.is_action_pressed("move_backward"):
+		var backward = camera_basis * Vector3.BACK
+		backward.y = 0
+		movement_input += backward.normalized()
+	
+	# Left/right movement
+	if Input.is_action_pressed("move_left"):
+		var left = camera_basis * Vector3.LEFT
+		left.y = 0
+		movement_input += left.normalized()
+	
+	if Input.is_action_pressed("move_right"):
+		var right = camera_basis * Vector3.RIGHT
+		right.y = 0
+		movement_input += right.normalized()
+	
+	# Jump action
+	if Input.is_action_just_pressed("jump") and is_on_floor():
+		velocity.y = jump_velocity
+	
+	# Edit mode actions (only process if edit mode is active for some)
+	if Input.is_action_just_pressed("toggle_edit_mode"):
+		edit_mode = !edit_mode
+		edit_mode_changed.emit(edit_mode)
+		print("Edit mode: ", "ON" if edit_mode else "OFF")
+	
+	if edit_mode:
+		if Input.is_action_just_pressed("place_voxel"):
+			_handle_voxel_placement()
+		elif Input.is_action_just_pressed("remove_voxel"):
+			_handle_voxel_removal()
+		elif Input.is_action_just_pressed("cycle_voxel_type"):
+			_cycle_voxel_type()

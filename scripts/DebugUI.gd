@@ -43,6 +43,26 @@ func update_debug_info():
 				debug_text += "Edit Mode: " + str(player_debug.edit_mode) + "\n"
 				if player_debug.edit_mode:
 					debug_text += "Voxel Type: " + str(player_debug.voxel_type) + "\n"
+			
+			# Action system info
+			if player_debug.has("movement_input"):
+				debug_text += "Movement Input: " + str(player_debug.movement_input.round()) + "\n"
+			
+			if player_debug.has("action_system"):
+				debug_text += "\n=== ACTION SYSTEM ===\n"
+				debug_text += player_debug.action_system + "\n"
+				debug_text += "WASD Movement: Active\n"
+				debug_text += "Jump: " + ("✓" if Input.is_action_pressed("jump") else "○") + "\n"
+				debug_text += "Edit Mode: " + ("✓" if player_debug.edit_mode else "○") + "\n"
+			elif player_debug.has("actions"):
+				debug_text += "\n=== ACTION SYSTEM ===\n"
+				var actions = player_debug.actions
+				if actions.size() > 0:
+					for action_info in actions:
+						var status = "✓" if action_info.enabled else "✗"
+						debug_text += status + " " + action_info.name + " (" + action_info.input + ")\n"
+				else:
+					debug_text += "No actions loaded\n"
 	else:
 		debug_text += "Player: Not Found\n"
 	
