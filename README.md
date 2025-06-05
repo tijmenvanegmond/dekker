@@ -56,10 +56,44 @@ A Godot 4.4 project focused on experimenting with voxel rendering and shader dev
 4. Press Escape to release mouse cursor
 
 ### Controls
-- **WASD**: Move around
+- **WASD**: Move around  
 - **Mouse**: Look around
 - **Space**: Jump
-- **Escape**: Release mouse cursor
+- **Escape**: Release/capture mouse cursor
+- **T**: Toggle world edit mode
+- **R**: Cycle through voxel types (Grass, Dirt, Stone, Ore)
+- **Left Click**: Place voxel (in edit mode)
+- **Right Click**: Remove voxel (in edit mode)
+
+## New Features Added
+
+### Advanced Player Controller
+- Proper WASD movement controls (fixed from arrow keys)
+- Air control and improved physics
+- Camera bobbing effect
+- Mouse sensitivity controls
+- World editing mode with visual feedback
+
+### World Editing System
+- Toggle edit mode with T key
+- Place voxels with left click
+- Remove voxels with right click  
+- Cycle through 4 voxel types with R key
+- Real-time mesh updates
+- Smart chunk boundary handling
+
+### Debug UI
+- Real-time performance metrics
+- Player position and state
+- Chunk loading information
+- Control reference
+- Edit mode status
+
+### Enhanced Terrain Generation
+- Multi-octave noise for varied terrain
+- Improved height-based material assignment
+- Ore vein generation in deep stone layers
+- Better surface detail
 
 ## Customization
 

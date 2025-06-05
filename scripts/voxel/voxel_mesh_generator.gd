@@ -89,18 +89,24 @@ func add_face(vertices: PackedVector3Array, normals: PackedVector3Array,
 		
 		# Simple UV mapping based on voxel type
 		var uv = Vector2(float(i % 2), float(i / 2))
-		# Offset UV based on voxel type for texture atlas
-		uv.x += float(voxel_type - 1) * 0.25  # Assume 4 textures per row
+		# Offset UV based on voxel type for texture atlas (supports up to 4 types)
+		match voxel_type:
+			1: uv.x += 0.0    # Grass
+			2: uv.x += 0.25   # Dirt  
+			3: uv.x += 0.5    # Stone
+			4: uv.x += 0.75   # Special/Ore
+			_: uv.x += 0.0    # Default to grass
 		uvs.append(uv)
 	
 	# Add triangles (two triangles per quad)
+	# Fixed winding order to make normals point outward
 	var base_index = vertex_offset
-	# First triangle
+	# First triangle (counter-clockwise)
 	indices.append(base_index)
+	indices.append(base_index + 2)
 	indices.append(base_index + 1)
-	indices.append(base_index + 2)
 	
-	# Second triangle
+	# Second triangle (counter-clockwise)
 	indices.append(base_index)
-	indices.append(base_index + 2)
 	indices.append(base_index + 3)
+	indices.append(base_index + 2)

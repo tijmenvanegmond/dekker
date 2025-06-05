@@ -3,11 +3,12 @@
 importer="glsl"
 type="RDShaderFile"
 uid="uid://dwjnlddq2g8qa"
-valid=false
+path="res://.godot/imported/voxel_generation.glsl-65f8a98aacd0e46de28f5fd489baaba6.res"
 
 [deps]
 
 source_file="res://shaders/voxel_generation.glsl"
+dest_files=["res://.godot/imported/voxel_generation.glsl-65f8a98aacd0e46de28f5fd489baaba6.res"]
 
 [params]
 

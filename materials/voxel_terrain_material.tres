@@ -6,6 +6,6 @@
 render_priority = 0
 shader = ExtResource("1_3e1k4")
 shader_parameter/voxel_scale = 1.0
-shader_parameter/texture_scale = 1.0
-shader_parameter/grass_height = 0.7
-shader_parameter/stone_height = 0.9
+shader_parameter/texture_scale = 2.0
+shader_parameter/grass_height = 0.6
+shader_parameter/stone_height = 0.85

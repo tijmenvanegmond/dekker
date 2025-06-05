@@ -1,6 +1,8 @@
-[gd_scene load_steps=4 format=3 uid="uid://bvhbxkw1d4lp4"]
+[gd_scene load_steps=6 format=3 uid="uid://bvhbxkw1d4lp4"]
 
-[ext_resource type="Script" path="res://scripts/voxel/voxel_world.gd" id="1_0q5yg"]
+[ext_resource type="Script" uid="uid://b082o64at0neo" path="res://scripts/voxel/voxel_world.gd" id="1_0q5yg"]
+[ext_resource type="Script" path="res://scripts/PlayerController.gd" id="2_player"]
+[ext_resource type="Script" path="res://scripts/DebugUI.gd" id="3_debug"]
 
 [sub_resource type="Environment" id="Environment_1mqyg"]
 background_mode = 1
@@ -9,50 +11,9 @@ ambient_light_source = 2
 ambient_light_color = Color(0.8, 0.9, 1, 1)
 ambient_light_energy = 0.3
 
-[sub_resource type="GDScript" id="GDScript_1xb4q"]
-script/source = "extends CharacterBody3D
-
-@export var speed = 5.0
-@export var jump_velocity = 4.5
-@export var mouse_sensitivity = 0.002
-
-var gravity = ProjectSettings.get_setting(\"physics/3d/default_gravity\")
-
-@onready var camera = $Camera3D
-
-func _ready():
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-
-func _input(event):
-	if event is InputEventMouseMotion:
-		rotate_y(-event.relative.x * mouse_sensitivity)
-		camera.rotate_x(-event.relative.y * mouse_sensitivity)
-		camera.rotation.x = clamp(camera.rotation.x, -PI/2, PI/2)
-	
-	if event.is_action_pressed(\"ui_cancel\"):
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-
-func _physics_process(delta):
-	# Add gravity
-	if not is_on_floor():
-		velocity.y -= gravity * delta
-	
-	# Handle jump
-	if Input.is_action_just_pressed(\"ui_accept\") and is_on_floor():
-		velocity.y = jump_velocity
-	
-	# Handle movement
-	var input_dir = Input.get_vector(\"ui_left\", \"ui_right\", \"ui_up\", \"ui_down\")
-	var direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
-	if direction:
-		velocity.x = direction.x * speed
-		velocity.z = direction.z * speed
-	else:
-		velocity.x = move_toward(velocity.x, 0, speed)
-		velocity.z = move_toward(velocity.z, 0, speed)
-	
-	move_and_slide()
-"
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1abcd"]
+radius = 0.4
+height = 1.8
 
 [node name="Main" type="Node3D"]
 
@@ -67,10 +28,19 @@ script = ExtResource("1_0q5yg")
 
 [node name="Player" type="CharacterBody3D" parent="VoxelWorld"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 0)
-script = SubResource("GDScript_1xb4q")
+script = ExtResource("2_player")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="VoxelWorld/Player"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("CapsuleShape3D_1abcd")
 
 [node name="Camera3D" type="Camera3D" parent="VoxelWorld/Player"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+
+[node name="DebugUI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("3_debug")
