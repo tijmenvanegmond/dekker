@@ -28,5 +28,5 @@ This is a Godot 4.4 project focused on experimenting with voxel shaders and proc
 - Use the run_vs_code_task tool to execute build/run tasks instead of manual terminal commands
 - Project has configured tasks for building and running Godot scenes
 
-# Tool ussage
-- Use playwright-mcp or simple-browser to search the godot documentation
+# Godot documentation
+- Use playwright-mcp or simple-browser to search for information the godot documentation and related resources

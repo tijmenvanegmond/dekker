@@ -1,52 +1,65 @@
 shader_type spatial;
 
-// 3D Voxel terrain shader with atlas support
-uniform float voxel_scale : hint_range(0.1, 10.0) = 1.0;
-uniform sampler2D texture_atlas : source_color;
-uniform float texture_scale : hint_range(0.1, 10.0) = 1.0;
-uniform float atlas_tile_size : hint_range(0.1, 1.0) = 0.25;
+// Tri-planar voxel terrain shader for marching cubes geometry
+uniform float texture_scale : hint_range(0.1, 10.0) = 2.0;
+uniform float blend_sharpness : hint_range(1.0, 32.0) = 8.0;
 
-// Enhanced material blending
-uniform float grass_height : hint_range(0.0, 1.0) = 0.6;
-uniform float stone_height : hint_range(0.0, 1.0) = 0.85;
-uniform float blend_sharpness : hint_range(0.1, 5.0) = 2.0;
+// Material textures
+uniform sampler2D grass_texture : source_color, hint_default_white;
+uniform sampler2D dirt_texture : source_color, hint_default_white;
+uniform sampler2D stone_texture : source_color, hint_default_white;
+
+// Material blending heights
+uniform float grass_height : hint_range(0.0, 20.0) = 8.0;
+uniform float stone_height : hint_range(0.0, 20.0) = 15.0;
+uniform float transition_width : hint_range(0.1, 5.0) = 2.0;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
-varying flat int material_id;
 
 void vertex() {
 	world_pos = VERTEX;
 	world_normal = NORMAL;
+}
+
+// Tri-planar texture sampling
+vec3 triplanar_sample(sampler2D tex, vec3 pos, vec3 normal) {
+	vec3 blend_weights = abs(normal);
+	blend_weights = pow(blend_weights, vec3(blend_sharpness));
+	blend_weights /= (blend_weights.x + blend_weights.y + blend_weights.z);
 	
-	// Determine material ID based on world position (simplified)
-	float height_factor = (world_pos.y + 10.0) * 0.1; // Normalize roughly
-	if (height_factor < grass_height) {
-		material_id = 0; // Grass
-	} else if (height_factor < stone_height) {
-		material_id = 1; // Dirt
-	} else {
-		material_id = 2; // Stone
-	}
+	vec3 x_sample = texture(tex, pos.yz * texture_scale).rgb;
+	vec3 y_sample = texture(tex, pos.xz * texture_scale).rgb;
+	vec3 z_sample = texture(tex, pos.xy * texture_scale).rgb;
+	
+	return x_sample * blend_weights.x + y_sample * blend_weights.y + z_sample * blend_weights.z;
 }
 
 void fragment() {
-	vec3 voxel_pos = floor(world_pos * voxel_scale) / voxel_scale;
-	vec2 base_uv = voxel_pos.xz * texture_scale;
+	vec3 scaled_pos = world_pos * 0.1; // Scale down for texture tiling
 	
-	// Calculate atlas UV based on material ID
-	vec2 atlas_uv = base_uv;
-	atlas_uv.x = mod(atlas_uv.x, 1.0) * atlas_tile_size + float(material_id) * atlas_tile_size;
-	atlas_uv.y = mod(atlas_uv.y, 1.0);
+	// Sample all three material textures using tri-planar mapping
+	vec3 grass_color = triplanar_sample(grass_texture, scaled_pos, world_normal);
+	vec3 dirt_color = triplanar_sample(dirt_texture, scaled_pos, world_normal);
+	vec3 stone_color = triplanar_sample(stone_texture, scaled_pos, world_normal);
 	
-	// Sample from atlas
-	vec3 albedo_color = texture(texture_atlas, atlas_uv).rgb;
+	// Height-based material blending
+	float height = world_pos.y;
 	
-	// Add some variation based on position
-	float noise_variation = sin(world_pos.x * 0.5) * cos(world_pos.z * 0.7) * 0.1;
-	albedo_color *= (1.0 + noise_variation);
+	// Calculate blend factors
+	float grass_factor = smoothstep(grass_height - transition_width, grass_height, height);
+	float stone_factor = smoothstep(stone_height - transition_width, stone_height, height);
 	
-	ALBEDO = albedo_color;
+	// Blend materials based on height
+	vec3 final_color = grass_color;
+	final_color = mix(final_color, dirt_color, grass_factor);
+	final_color = mix(final_color, stone_color, stone_factor);
+	
+	// Add some subtle variation based on world position
+	float variation = sin(world_pos.x * 0.1) * cos(world_pos.z * 0.15) * 0.05;
+	final_color *= (1.0 + variation);
+	
+	ALBEDO = final_color;
 	ROUGHNESS = 0.8;
-	METALLIC = (material_id == 3) ? 0.2 : 0.0; // Ore has some metallic properties
+	METALLIC = 0.0;
 }

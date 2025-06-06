@@ -70,6 +70,10 @@ func create_chunk(chunk_pos: Vector3i):
 	add_child(chunk)
 	chunks[chunk_pos] = chunk
 	
+	# After adding this chunk, try to generate meshes for chunks that might now be ready
+	# This includes both this chunk and its neighbors
+	call_deferred("_try_generate_pending_meshes")
+	
 	print("Created chunk at: ", chunk_pos)
 
 func remove_chunk(chunk_pos: Vector3i):
@@ -154,6 +158,51 @@ func update_chunk_mesh(chunk_pos: Vector3i):
 		var chunk = chunks[chunk_pos] as VoxelChunk
 		chunk.generate_mesh()
 
+# Get voxel at world position (for chunk boundary sampling)
+func get_voxel_world_pos(world_x: int, world_y: int, world_z: int) -> int:
+	var chunk_pos = Vector3i(
+		floori(float(world_x) / chunk_size),
+		floori(float(world_y) / chunk_size),
+		floori(float(world_z) / chunk_size)
+	)
+	
+	if chunks.has(chunk_pos):
+		var local_x = world_x - chunk_pos.x * chunk_size
+		var local_y = world_y - chunk_pos.y * chunk_size
+		var local_z = world_z - chunk_pos.z * chunk_size
+		return chunks[chunk_pos].get_voxel(local_x, local_y, local_z)
+	
+	# If chunk doesn't exist, generate theoretical voxel value
+	return _generate_theoretical_voxel(world_x, world_y, world_z)
+
+# Generate theoretical voxel value for unloaded chunks
+func _generate_theoretical_voxel(world_x: int, world_y: int, world_z: int) -> int:
+	# Use the same height generation logic as VoxelChunk
+	var height = _generate_theoretical_height(world_x, world_z)
+	
+	if world_y < height:
+		var depth_from_surface = height - world_y
+		if depth_from_surface < 1.0:
+			return 1  # Grass
+		elif depth_from_surface < 4.0:
+			return 2  # Dirt
+		else:
+			var ore_noise = sin(world_x * 0.3) * cos(world_y * 0.25) * sin(world_z * 0.35)
+			if ore_noise > 0.7:
+				return 4  # Ore
+			return 3  # Stone
+	
+	return 0  # Air
+
+func _generate_theoretical_height(world_x: int, world_z: int) -> float:
+	# Same height generation as VoxelChunk.generate_height()
+	var base_height = 8.0 + 4.0 * sin(world_x * 0.1) * cos(world_z * 0.1)
+	var noise1 = sin(world_x * 0.05) * cos(world_z * 0.07) * 2.0
+	var noise2 = sin(world_x * 0.02 + world_z * 0.03) * 1.5
+	var noise3 = sin(world_x * 0.15) * sin(world_z * 0.12) * 0.5
+	
+	return base_height + noise1 + noise2 + noise3
+
 # Signal handlers for world editing
 func _on_voxel_placed(world_pos: Vector3, voxel_type: int):
 	var success = set_voxel_at_world_position(world_pos, voxel_type)
@@ -174,11 +223,15 @@ func _on_edit_mode_changed(enabled: bool):
 	if enabled:
 		print("Controls: Left Click = Place, Right Click = Remove, R = Cycle voxel type, T = Toggle edit mode")
 
-# Debug function
-func get_world_info() -> Dictionary:
-	return {
-		"chunk_count": chunks.size(),
-		"player_position": player_position,
-		"player_chunk": world_to_chunk_pos(player_position),
-		"render_distance": render_distance
-	}
+# Get neighbor chunk for boundary checking
+func get_neighbor_chunk(chunk_pos: Vector3i) -> VoxelChunk:
+	if chunks.has(chunk_pos):
+		return chunks[chunk_pos]
+	return null
+
+# Try to generate meshes for chunks that might now be ready
+func _try_generate_pending_meshes():
+	for chunk_pos in chunks:
+		var chunk = chunks[chunk_pos]
+		if chunk and not chunk.mesh_ready and chunk.voxel_data_ready:
+			chunk.try_generate_mesh()

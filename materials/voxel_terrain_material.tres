@@ -1,11 +1,40 @@
 [gd_resource type="ShaderMaterial" script_class="ShaderMaterial" format=3 uid="uid://b8qnw0hr3a6bk"]
 
 [ext_resource type="Shader" path="res://shaders/voxel_terrain.gdshader" id="1_3e1k4"]
+[ext_resource type="Texture2D" path="res://textures/grass.tres" id="2_grass"]
+[ext_resource type="Texture2D" path="res://textures/dirt.tres" id="3_dirt"]
+[ext_resource type="Texture2D" path="res://textures/stone.tres" id="4_stone"]
 
 [resource]
 render_priority = 0
 shader = ExtResource("1_3e1k4")
+flags_use_point_size = false
+flags_transparent = false
+flags_unshaded = false
+flags_vertex_lighting = false
+flags_world_triplanar = false
+flags_fixed_size = false
+flags_albedo_tex_force_srgb = false
+flags_do_not_receive_shadows = false
+flags_disable_ambient_light = false
+no_depth_test = false
+shading_mode = 1
+diffuse_mode = 0
+specular_mode = 0
+disable_receive_shadows = false
+shadow_to_opacity = false
+billboard_mode = 0
+billboard_keep_scale = false
+grow_amount = 0.0
+proximity_fade_enabled = false
+msdf_pixel_range = 4.0
+msdf_outline_size = 0.0
+distance_fade_mode = 0
 shader_parameter/voxel_scale = 1.0
 shader_parameter/texture_scale = 2.0
-shader_parameter/grass_height = 0.6
-shader_parameter/stone_height = 0.85
+shader_parameter/grass_height = 10.0
+shader_parameter/stone_height = 14.0
+shader_parameter/transition_width = 2.0
+shader_parameter/grass_texture = ExtResource("2_grass")
+shader_parameter/dirt_texture = ExtResource("3_dirt")
+shader_parameter/stone_texture = ExtResource("4_stone")

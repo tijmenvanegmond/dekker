@@ -1,112 +1,25 @@
 class_name VoxelMeshGenerator
 extends RefCounted
 
-# Mesh generation for voxel chunks using marching cubes approach
-const VERTICES_PER_QUAD = 6
+# Mesh generation for voxel chunks using marching cubes algorithm
+@export var angular_mode: bool = true
 
-# Cube face vertices (for simple cubic voxels)
-const FACE_VERTICES = [
-	# Front face (positive Z)
-	[Vector3(0, 0, 1), Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1)],
-	# Back face (negative Z)
-	[Vector3(1, 0, 0), Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0)],
-	# Right face (positive X)
-	[Vector3(1, 0, 1), Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(1, 1, 1)],
-	# Left face (negative X)
-	[Vector3(0, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 1), Vector3(0, 1, 0)],
-	# Top face (positive Y)
-	[Vector3(0, 1, 1), Vector3(1, 1, 1), Vector3(1, 1, 0), Vector3(0, 1, 0)],
-	# Bottom face (negative Y)
-	[Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 0, 1), Vector3(0, 0, 1)]
-]
+var marching_cubes: MarchingCubesAlgorithm
 
-const FACE_NORMALS = [
-	Vector3(0, 0, 1),   # Front
-	Vector3(0, 0, -1),  # Back
-	Vector3(1, 0, 0),   # Right
-	Vector3(-1, 0, 0),  # Left
-	Vector3(0, 1, 0),   # Top
-	Vector3(0, -1, 0)   # Bottom
-]
-
-const FACE_DIRECTIONS = [
-	Vector3i(0, 0, 1),   # Front
-	Vector3i(0, 0, -1),  # Back
-	Vector3i(1, 0, 0),   # Right
-	Vector3i(-1, 0, 0),  # Left
-	Vector3i(0, 1, 0),   # Top
-	Vector3i(0, -1, 0)   # Bottom
-]
+func _init():
+	marching_cubes = MarchingCubesAlgorithm.new()
+	marching_cubes.angular_mode = angular_mode
 
 func generate_chunk_mesh(chunk: VoxelChunk) -> Array:
-	var vertices = PackedVector3Array()
-	var normals = PackedVector3Array()
-	var uvs = PackedVector2Array()
-	var indices = PackedInt32Array()
-	
-	var vertex_count = 0
-	
-	for x in range(chunk.CHUNK_SIZE):
-		for y in range(chunk.CHUNK_SIZE):
-			for z in range(chunk.CHUNK_SIZE):
-				if not chunk.is_voxel_solid(x, y, z):
-					continue
-				
-				# Check each face of the voxel
-				for face_index in range(6):
-					var neighbor_pos = Vector3i(x, y, z) + FACE_DIRECTIONS[face_index]
-					
-					# Only create face if neighbor is air or outside chunk
-					if not chunk.is_voxel_solid(neighbor_pos.x, neighbor_pos.y, neighbor_pos.z):
-						add_face(vertices, normals, uvs, indices, 
-								Vector3(x, y, z), face_index, vertex_count, chunk.get_voxel(x, y, z))
-						vertex_count += 4
-	
-	if vertices.size() == 0:
-		return []
+	return _generate_marching_cubes_mesh(chunk)
+
+func _generate_marching_cubes_mesh(chunk: VoxelChunk) -> Array:
+	var mesh = marching_cubes.generate_chunk_mesh(chunk)
 	
 	var arrays = []
 	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_INDEX] = indices
+	
+	if mesh.get_surface_count() > 0:
+		arrays = mesh.surface_get_arrays(0)
 	
 	return arrays
-
-func add_face(vertices: PackedVector3Array, normals: PackedVector3Array, 
-			  uvs: PackedVector2Array, indices: PackedInt32Array,
-			  voxel_pos: Vector3, face_index: int, vertex_offset: int, voxel_type: int):
-	
-	var face_verts = FACE_VERTICES[face_index]
-	var face_normal = FACE_NORMALS[face_index]
-	
-	# Add vertices
-	for i in range(4):
-		var vert = voxel_pos + face_verts[i]
-		vertices.append(vert)
-		normals.append(face_normal)
-		
-		# Simple UV mapping based on voxel type
-		var uv = Vector2(float(i % 2), float(i / 2))
-		# Offset UV based on voxel type for texture atlas (supports up to 4 types)
-		match voxel_type:
-			1: uv.x += 0.0    # Grass
-			2: uv.x += 0.25   # Dirt  
-			3: uv.x += 0.5    # Stone
-			4: uv.x += 0.75   # Special/Ore
-			_: uv.x += 0.0    # Default to grass
-		uvs.append(uv)
-	
-	# Add triangles (two triangles per quad)
-	# Fixed winding order to make normals point outward
-	var base_index = vertex_offset
-	# First triangle (counter-clockwise)
-	indices.append(base_index)
-	indices.append(base_index + 2)
-	indices.append(base_index + 1)
-	
-	# Second triangle (counter-clockwise)
-	indices.append(base_index)
-	indices.append(base_index + 3)
-	indices.append(base_index + 2)

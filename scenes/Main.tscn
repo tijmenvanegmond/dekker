@@ -20,8 +20,13 @@ height = 1.8
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_1mqyg")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 10, 0)
+light_energy = 1.2
+light_color = Color(1, 0.95, 0.8, 1)
+shadow_enabled = true
+directional_shadow_mode = 1
+directional_shadow_max_distance = 100.0
 
 [node name="VoxelWorld" type="Node3D" parent="."]
 script = ExtResource("1_0q5yg")

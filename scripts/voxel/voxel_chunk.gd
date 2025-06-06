@@ -11,6 +11,12 @@ const VOXEL_SIZE = 1.0
 var voxel_data: Array[int] = []
 var mesh_generator: VoxelMeshGenerator
 
+# Track when chunk was last generated to prevent excessive regeneration
+var last_mesh_generation_time: float = 0.0
+var is_generating_mesh: bool = false  # Prevent recursion
+var voxel_data_ready: bool = false  # Track if voxel data is generated
+var mesh_ready: bool = false  # Track if mesh is generated
+
 func _ready():
 	mesh_generator = VoxelMeshGenerator.new()
 	if auto_generate:
@@ -35,8 +41,11 @@ func generate_chunk():
 				var world_y = chunk_position.y * CHUNK_SIZE + y
 				set_voxel(x, y, z, get_voxel_type(world_x, world_y, world_z, height))
 	
-	# Generate mesh
-	generate_mesh()
+	# Mark voxel data as ready
+	voxel_data_ready = true
+	
+	# Try to generate mesh (will only succeed if neighbors are ready)
+	try_generate_mesh()
 
 func generate_height(world_x: int, world_z: int) -> float:
 	# Base height using sine waves
@@ -49,17 +58,17 @@ func generate_height(world_x: int, world_z: int) -> float:
 	
 	return base_height + noise1 + noise2 + noise3
 
-func get_voxel_type(x: int, y: int, z: int, surface_height: float) -> int:
+func get_voxel_type(world_x: int, world_y: int, world_z: int, surface_height: float) -> int:
 	# More sophisticated material assignment
-	var depth_from_surface = surface_height - y
+	var depth_from_surface = surface_height - world_y
 	
 	if depth_from_surface < 1.0:
 		return 1  # Grass (top layer)
 	elif depth_from_surface < 4.0:
 		return 2  # Dirt (sub-surface)
 	else:
-		# Add some ore veins in deep stone
-		var ore_noise = sin(x * 0.3) * cos(y * 0.25) * sin(z * 0.35)
+		# Add some ore veins in deep stone - use world coordinates for consistency
+		var ore_noise = sin(world_x * 0.3) * cos(world_y * 0.25) * sin(world_z * 0.35)
 		if ore_noise > 0.7:
 			return 4  # Could be ore or special stone
 		return 3  # Regular stone
@@ -78,7 +87,33 @@ func get_voxel(x: int, y: int, z: int) -> int:
 	var index = x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE
 	return voxel_data[index]
 
+func get_voxel_safe(x: int, y: int, z: int) -> int:
+	# Safe voxel access with bounds checking and neighbor chunk sampling
+	if x >= 0 and x < CHUNK_SIZE and y >= 0 and y < CHUNK_SIZE and z >= 0 and z < CHUNK_SIZE:
+		return get_voxel(x, y, z)
+	
+	# For out-of-bounds access, try to get from neighboring chunk
+	if get_parent() and get_parent().has_method("get_voxel_world_pos"):
+		var world_x = chunk_position.x * CHUNK_SIZE + x
+		var world_y = chunk_position.y * CHUNK_SIZE + y
+		var world_z = chunk_position.z * CHUNK_SIZE + z
+		return get_parent().get_voxel_world_pos(world_x, world_y, world_z)
+	
+	return 0  # Return air/empty if no neighbor available
+
 func generate_mesh():
+	# Prevent infinite recursion
+	if is_generating_mesh:
+		return
+	
+	# Prevent excessive mesh regeneration
+	var current_time = Time.get_ticks_msec() / 1000.0  # Use more reliable timing
+	if current_time - last_mesh_generation_time < 0.1:  # Minimum 100ms between regenerations
+		return
+	
+	is_generating_mesh = true
+	last_mesh_generation_time = current_time
+	
 	var arrays = mesh_generator.generate_chunk_mesh(self)
 	
 	if arrays.size() > 0:
@@ -92,6 +127,11 @@ func generate_mesh():
 		
 		# Create efficient collision shape
 		create_collision_shape()
+		
+		# Mark mesh as ready
+		mesh_ready = true
+	
+	is_generating_mesh = false
 
 func create_collision_shape():
 	# Remove existing collision shape if any
@@ -132,3 +172,82 @@ func get_voxel_index(x: int, y: int, z: int) -> int:
 
 func is_voxel_solid(x: int, y: int, z: int) -> bool:
 	return get_voxel(x, y, z) > 0
+
+# Try to generate mesh only if all neighbors have voxel data ready
+func try_generate_mesh():
+	if mesh_ready:
+		return  # Already have mesh
+		
+	if not voxel_data_ready:
+		return  # Our own voxel data not ready yet
+	
+	# Check if all neighbors have their voxel data ready
+	if not _all_neighbors_ready():
+		print("Chunk ", chunk_position, " waiting for neighbors to be ready")
+		return  # Wait for neighbors
+	
+	print("Chunk ", chunk_position, " generating mesh - all neighbors ready")
+	# All conditions met, generate mesh
+	generate_mesh()
+
+# Check if all neighboring chunks have their voxel data ready
+func _all_neighbors_ready() -> bool:
+	if not get_parent() or not get_parent().has_method("get_neighbor_chunk"):
+		return true  # No world manager, proceed anyway
+	
+	var neighbor_offsets = [
+		Vector3i(-1, 0, 0), Vector3i(1, 0, 0),   # X neighbors
+		Vector3i(0, -1, 0), Vector3i(0, 1, 0),   # Y neighbors  
+		Vector3i(0, 0, -1), Vector3i(0, 0, 1)    # Z neighbors
+	]
+	
+	var neighbors_ready = 0
+	var neighbors_total = 0
+	var neighbors_waiting = 0
+	
+	for offset in neighbor_offsets:
+		var neighbor_pos = chunk_position + offset
+		var neighbor = get_parent().get_neighbor_chunk(neighbor_pos)
+		
+		neighbors_total += 1
+		
+		if neighbor:
+			# Neighbor exists
+			if neighbor.voxel_data_ready:
+				neighbors_ready += 1
+			else:
+				# Neighbor exists but not ready - must wait
+				neighbors_waiting += 1
+				print("Chunk ", chunk_position, " waiting for neighbor ", neighbor_pos, " (exists but not ready)")
+				return false
+		else:
+			# Neighbor doesn't exist yet
+			# Check if it should exist (is it within render distance?)
+			if _should_neighbor_exist(neighbor_pos):
+				neighbors_waiting += 1
+				print("Chunk ", chunk_position, " waiting for neighbor ", neighbor_pos, " (should exist but doesn't)")
+				return false
+			else:
+				# Neighbor is outside render distance, use theoretical generation
+				neighbors_ready += 1
+	
+	print("Chunk ", chunk_position, " has ", neighbors_ready, "/", neighbors_total, " neighbors ready, ", neighbors_waiting, " waiting")
+	return true
+
+# Check if a neighbor chunk should exist based on render distance and world bounds
+func _should_neighbor_exist(neighbor_pos: Vector3i) -> bool:
+	if not get_parent() or not get_parent().has_method("world_to_chunk_pos"):
+		return false
+	
+	# Check Y-coordinate bounds first - currently only Y=0 chunks are generated
+	# This prevents infinite waiting for chunks at Y=-1 or Y=1 that will never exist
+	if neighbor_pos.y != 0:
+		return false
+	
+	# Get the player's chunk position
+	var world = get_parent()
+	var player_chunk = world.world_to_chunk_pos(world.player_position)
+	
+	# Check if neighbor is within render distance (only check X-Z plane since Y is fixed at 0)
+	var distance = Vector2(neighbor_pos.x - player_chunk.x, neighbor_pos.z - player_chunk.z).length()
+	return distance <= world.render_distance
