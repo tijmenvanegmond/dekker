@@ -10,10 +10,10 @@ func _init():
 	marching_cubes = MarchingCubesAlgorithm.new()
 	marching_cubes.angular_mode = angular_mode
 
-func generate_chunk_mesh(chunk: VoxelChunk) -> Array:
+func generate_chunk_mesh(chunk) -> Array:
 	return _generate_marching_cubes_mesh(chunk)
 
-func _generate_marching_cubes_mesh(chunk: VoxelChunk) -> Array:
+func _generate_marching_cubes_mesh(chunk) -> Array:
 	var mesh = marching_cubes.generate_chunk_mesh(chunk)
 	
 	var arrays = []

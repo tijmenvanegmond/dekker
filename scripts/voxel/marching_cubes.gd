@@ -16,7 +16,7 @@ func _init():
 
 
 # Generate mesh for a voxel chunk using marching cubes
-func generate_chunk_mesh(chunk: VoxelChunk) -> ArrayMesh:
+func generate_chunk_mesh(chunk) -> ArrayMesh:
 	var vertices = PackedVector3Array()
 	var normals = PackedVector3Array()
 	
@@ -44,7 +44,7 @@ func generate_chunk_mesh(chunk: VoxelChunk) -> ArrayMesh:
 	return mesh
 
 # Process a single cube for marching cubes (following reference implementation)
-func _process_cube(chunk: VoxelChunk, x: int, y: int, z: int, 
+func _process_cube(chunk, x: int, y: int, z: int, 
 				   vertices: PackedVector3Array, normals: PackedVector3Array):
 	
 	# Get triangulation for this cube
@@ -94,7 +94,7 @@ func _process_cube(chunk: VoxelChunk, x: int, y: int, z: int,
 		i += 3
 
 # Helper function to get vertex position for an edge
-func _get_edge_vertex(edge_index: int, x: int, y: int, z: int, chunk: VoxelChunk) -> Vector3:
+func _get_edge_vertex(edge_index: int, x: int, y: int, z: int, chunk) -> Vector3:
 	# Get the two points that define this edge
 	var point_indices = MarchingCubesTables.EDGES[edge_index]
 	var p0 = MarchingCubesTables.POINTS[point_indices.x]
@@ -120,7 +120,7 @@ func _calculate_triangle_normal(v0: Vector3, v1: Vector3, v2: Vector3) -> Vector
 	return normal
 
 # Get triangulation configuration for a cube (following reference implementation)
-func _get_triangulation(x: int, y: int, z: int, chunk: VoxelChunk) -> Array:
+func _get_triangulation(x: int, y: int, z: int, chunk) -> Array:
 	var idx = 0b00000000
 	idx |= int(_sample_density(chunk, Vector3(x, y, z)) < surface_threshold) << 0
 	idx |= int(_sample_density(chunk, Vector3(x, y, z+1)) < surface_threshold) << 1
@@ -134,7 +134,7 @@ func _get_triangulation(x: int, y: int, z: int, chunk: VoxelChunk) -> Array:
 	return MarchingCubesTables.TRIANGULATIONS[idx]
 
 # Calculate interpolated position on edge (following reference implementation)
-func _calculate_interpolation(a: Vector3, b: Vector3, chunk: VoxelChunk) -> Vector3:
+func _calculate_interpolation(a: Vector3, b: Vector3, chunk) -> Vector3:
 	var val_a = _sample_density(chunk, a)
 	var val_b = _sample_density(chunk, b)
 	
@@ -176,7 +176,7 @@ func _calculate_angular_normal(vertex_pos: Vector3, cube_pos: Vector3) -> Vector
 		return Vector3(0, 0, sign(to_vertex.z))
 
 # Calculate smooth normal using gradient
-func _calculate_smooth_normal(chunk: VoxelChunk, pos: Vector3) -> Vector3:
+func _calculate_smooth_normal(chunk, pos: Vector3) -> Vector3:
 	var epsilon = 0.1
 	
 	# Sample density gradient
@@ -188,10 +188,37 @@ func _calculate_smooth_normal(chunk: VoxelChunk, pos: Vector3) -> Vector3:
 	return gradient.normalized() if gradient.length() > 0.001 else Vector3.UP
 
 # Sample density at a position
-func _sample_density(chunk: VoxelChunk, pos: Vector3) -> float:
+func _sample_density(chunk, pos: Vector3) -> float:
 	var x = int(floor(pos.x))
 	var y = int(floor(pos.y))
 	var z = int(floor(pos.z))
 	
 	var voxel_type = chunk.get_voxel_safe(x, y, z)
 	return 1.0 if voxel_type > 0 else 0.0
+
+# Check if this mesh generation might cause overlaps with neighbors
+func should_generate_boundary_faces(chunk, x: int, y: int, z: int) -> bool:
+	# For faces on chunk boundaries, only generate them from one side to prevent overlaps
+	# This helps reduce visual seams and z-fighting
+	
+	# Check if we're on the positive boundary (higher coordinate side)
+	var on_x_boundary = (x == chunk.CHUNK_SIZE - 1)
+	var on_y_boundary = (y == chunk.CHUNK_SIZE - 1)  
+	var on_z_boundary = (z == chunk.CHUNK_SIZE - 1)
+	
+	# If we're on a positive boundary, let the neighboring chunk handle the face
+	# This prevents duplicate geometry at chunk boundaries
+	if on_x_boundary or on_y_boundary or on_z_boundary:
+		# Check if neighboring chunks exist
+		var world = chunk.get_parent()
+		if world and world.has_method("chunks"):
+			var chunk_pos = chunk.chunk_position
+			
+			if on_x_boundary and world.chunks.has(Vector3i(chunk_pos.x + 1, chunk_pos.y, chunk_pos.z)):
+				return false
+			if on_y_boundary and world.chunks.has(Vector3i(chunk_pos.x, chunk_pos.y + 1, chunk_pos.z)):
+				return false  
+			if on_z_boundary and world.chunks.has(Vector3i(chunk_pos.x, chunk_pos.y, chunk_pos.z + 1)):
+				return false
+	
+	return true

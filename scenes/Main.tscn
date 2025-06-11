@@ -1,8 +1,8 @@
 [gd_scene load_steps=6 format=3 uid="uid://bvhbxkw1d4lp4"]
 
 [ext_resource type="Script" uid="uid://b082o64at0neo" path="res://scripts/voxel/voxel_world.gd" id="1_0q5yg"]
-[ext_resource type="Script" path="res://scripts/PlayerController.gd" id="2_player"]
-[ext_resource type="Script" path="res://scripts/DebugUI.gd" id="3_debug"]
+[ext_resource type="Script" uid="uid://bugqcionjyjed" path="res://scripts/PlayerController.gd" id="2_player"]
+[ext_resource type="Script" uid="uid://0ec53mlf5ic4" path="res://scripts/DebugUI.gd" id="3_debug"]
 
 [sub_resource type="Environment" id="Environment_1mqyg"]
 background_mode = 1
@@ -22,11 +22,10 @@ environment = SubResource("Environment_1mqyg")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 10, 0)
-light_energy = 1.2
 light_color = Color(1, 0.95, 0.8, 1)
+light_energy = 1.2
 shadow_enabled = true
 directional_shadow_mode = 1
-directional_shadow_max_distance = 100.0
 
 [node name="VoxelWorld" type="Node3D" parent="."]
 script = ExtResource("1_0q5yg")
@@ -47,5 +46,7 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("3_debug")

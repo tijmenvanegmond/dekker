@@ -114,9 +114,19 @@ func generate_mesh():
 	is_generating_mesh = true
 	last_mesh_generation_time = current_time
 	
+	# Use threaded mesh generation if available
+	var world = get_parent()
+	if world and world.has_method("request_threaded_mesh_generation") and world.enable_threading:
+		VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " requesting threaded mesh generation")
+		world.request_threaded_mesh_generation(chunk_position)
+		is_generating_mesh = false
+		return
+	
+	# Fallback to synchronous generation
+	VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " using synchronous mesh generation")
 	var arrays = mesh_generator.generate_chunk_mesh(self)
 	
-	if arrays.size() > 0:
+	if arrays.size() > 0 and arrays[Mesh.ARRAY_VERTEX] != null and arrays[Mesh.ARRAY_VERTEX].size() > 0:
 		var array_mesh = ArrayMesh.new()
 		array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		mesh = array_mesh
@@ -130,6 +140,9 @@ func generate_mesh():
 		
 		# Mark mesh as ready
 		mesh_ready = true
+		VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " mesh generated successfully with " + str(arrays[Mesh.ARRAY_VERTEX].size()) + " vertices")
+	else:
+		VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " generated empty mesh arrays - no visible terrain")
 	
 	is_generating_mesh = false
 
@@ -173,7 +186,7 @@ func get_voxel_index(x: int, y: int, z: int) -> int:
 func is_voxel_solid(x: int, y: int, z: int) -> bool:
 	return get_voxel(x, y, z) > 0
 
-# Try to generate mesh only if all neighbors have voxel data ready
+# Try to generate mesh as soon as our voxel data is ready
 func try_generate_mesh():
 	if mesh_ready:
 		return  # Already have mesh
@@ -181,73 +194,44 @@ func try_generate_mesh():
 	if not voxel_data_ready:
 		return  # Our own voxel data not ready yet
 	
-	# Check if all neighbors have their voxel data ready
-	if not _all_neighbors_ready():
-		print("Chunk ", chunk_position, " waiting for neighbors to be ready")
-		return  # Wait for neighbors
-	
-	print("Chunk ", chunk_position, " generating mesh - all neighbors ready")
-	# All conditions met, generate mesh
+	VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " generating mesh - voxel data ready")
+	# Generate mesh immediately when voxel data is ready
 	generate_mesh()
 
-# Check if all neighboring chunks have their voxel data ready
-func _all_neighbors_ready() -> bool:
-	if not get_parent() or not get_parent().has_method("get_neighbor_chunk"):
-		return true  # No world manager, proceed anyway
-	
-	var neighbor_offsets = [
-		Vector3i(-1, 0, 0), Vector3i(1, 0, 0),   # X neighbors
-		Vector3i(0, -1, 0), Vector3i(0, 1, 0),   # Y neighbors  
-		Vector3i(0, 0, -1), Vector3i(0, 0, 1)    # Z neighbors
-	]
-	
-	var neighbors_ready = 0
-	var neighbors_total = 0
-	var neighbors_waiting = 0
-	
-	for offset in neighbor_offsets:
-		var neighbor_pos = chunk_position + offset
-		var neighbor = get_parent().get_neighbor_chunk(neighbor_pos)
-		
-		neighbors_total += 1
-		
-		if neighbor:
-			# Neighbor exists
-			if neighbor.voxel_data_ready:
-				neighbors_ready += 1
-			else:
-				# Neighbor exists but not ready - must wait
-				neighbors_waiting += 1
-				print("Chunk ", chunk_position, " waiting for neighbor ", neighbor_pos, " (exists but not ready)")
-				return false
-		else:
-			# Neighbor doesn't exist yet
-			# Check if it should exist (is it within render distance?)
-			if _should_neighbor_exist(neighbor_pos):
-				neighbors_waiting += 1
-				print("Chunk ", chunk_position, " waiting for neighbor ", neighbor_pos, " (should exist but doesn't)")
-				return false
-			else:
-				# Neighbor is outside render distance, use theoretical generation
-				neighbors_ready += 1
-	
-	print("Chunk ", chunk_position, " has ", neighbors_ready, "/", neighbors_total, " neighbors ready, ", neighbors_waiting, " waiting")
-	return true
+# Methods for threaded generation support
+func set_voxel_data(new_voxel_data: Array[int]):
+	"""Set voxel data from threaded terrain generation"""
+	voxel_data = new_voxel_data.duplicate()
+	voxel_data_ready = true
+	VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " received voxel data from threaded generation, voxel_data_ready=" + str(voxel_data_ready))
+	# Try to generate mesh now that we have voxel data
+	try_generate_mesh()
 
-# Check if a neighbor chunk should exist based on render distance and world bounds
-func _should_neighbor_exist(neighbor_pos: Vector3i) -> bool:
-	if not get_parent() or not get_parent().has_method("world_to_chunk_pos"):
-		return false
-	
-	# Check Y-coordinate bounds first - currently only Y=0 chunks are generated
-	# This prevents infinite waiting for chunks at Y=-1 or Y=1 that will never exist
-	if neighbor_pos.y != 0:
-		return false
-	
-	# Get the player's chunk position
-	var world = get_parent()
-	var player_chunk = world.world_to_chunk_pos(world.player_position)
-	
-	# Check if neighbor is within render distance (only check X-Z plane since Y is fixed at 0)
-	var distance = Vector2(neighbor_pos.x - player_chunk.x, neighbor_pos.z - player_chunk.z).length()
-	return distance <= world.render_distance
+func set_mesh_arrays(mesh_arrays: Array):
+	"""Set mesh from threaded mesh generation"""
+	if mesh_arrays.size() > 0:
+		var array_mesh = ArrayMesh.new()
+		array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, mesh_arrays)
+		mesh = array_mesh
+		
+		# Apply voxel terrain material
+		var material = preload("res://materials/voxel_terrain_material.tres")
+		set_surface_override_material(0, material)
+		
+		# Create efficient collision shape
+		create_collision_shape()
+		
+		# Mark mesh as ready
+		mesh_ready = true
+		VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " received mesh from threaded generation")
+	else:
+		VoxelLogger.warning("CHUNK", "Chunk " + str(chunk_position) + " received empty mesh arrays")
+
+func can_generate_mesh() -> bool:
+	"""Check if this chunk can generate a mesh (has data and neighbors are ready)"""
+	# Only require own voxel data to be ready - neighbors can use fallback values
+	return voxel_data_ready
+
+func get_voxel_data_copy() -> Array[int]:
+	"""Get a copy of voxel data for threaded mesh generation"""
+	return voxel_data.duplicate()

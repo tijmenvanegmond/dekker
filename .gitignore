@@ -17,6 +17,9 @@ export_presets.cfg
 data_*/
 mono_crash.*.json
 
+# Voxel system logs
+logs/
+
 # System/OS files
 .DS_Store
 .DS_Store?

@@ -75,6 +75,41 @@ func update_debug_info():
 			debug_text += "Render Distance: " + str(world_info.render_distance) + "\n"
 		else:
 			debug_text += "Chunks: " + str(voxel_world.chunks.size()) + "\n"
+		
+		# Threading statistics
+		if voxel_world.enable_threading:
+			debug_text += "\n=== THREADING ===\n"
+			debug_text += "Threading: ENABLED\n"
+			
+			if voxel_world.terrain_generator and voxel_world.terrain_generator.has_method("get_stats"):
+				var terrain_stats = voxel_world.terrain_generator.get_stats()
+				if terrain_stats is Dictionary and terrain_stats.has("queue_size"):
+					debug_text += "Terrain Queue: " + str(terrain_stats.queue_size) + "\n"
+					debug_text += "Terrain Generated: " + str(terrain_stats.get("chunks_generated", 0)) + "\n"
+					var chunks_generated = terrain_stats.get("chunks_generated", 0)
+					if chunks_generated > 0:
+						var avg_time = terrain_stats.get("average_time_per_chunk", 0.0)
+						debug_text += "Avg Terrain Time: " + str("%.3f" % avg_time) + "s\n"
+				else:
+					debug_text += "Terrain Stats: Invalid format\n"
+			else:
+				debug_text += "Terrain Generator: Not Ready\n"
+			
+			if voxel_world.mesh_generator and voxel_world.mesh_generator.has_method("get_debug_info"):
+				var mesh_stats = voxel_world.mesh_generator.get_debug_info()
+				if mesh_stats is Dictionary and mesh_stats.has("queue_size"):
+					debug_text += "Mesh Queue: " + str(mesh_stats.queue_size) + "\n"
+					debug_text += "Active Mesh Gen: " + str(mesh_stats.get("active_generations", 0)) + "\n"
+				else:
+					debug_text += "Mesh Stats: Invalid format\n"
+			else:
+				debug_text += "Mesh Generator: Not Ready\n"
+			
+			debug_text += "Waiting for Terrain: " + str(voxel_world.chunks_waiting_for_terrain.size()) + "\n"
+			debug_text += "Waiting for Mesh: " + str(voxel_world.chunks_waiting_for_mesh.size()) + "\n"
+		else:
+			debug_text += "\n=== THREADING ===\n"
+			debug_text += "Threading: DISABLED\n"
 	else:
 		debug_text += "World: Not Found\n"
 	
