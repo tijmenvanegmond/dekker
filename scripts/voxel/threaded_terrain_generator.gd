@@ -19,7 +19,7 @@ func _init():
 	_setup_thread_pool()
 
 func _setup_thread_pool():
-	VoxelLogger.info("TERRAIN_GEN", "Setting up " + str(MAX_THREADS) + " terrain generation threads")
+	Logger.info("TERRAIN_GEN", "Setting up " + str(MAX_THREADS) + " terrain generation threads")
 	
 	for i in MAX_THREADS:
 		var thread = Thread.new()
@@ -70,7 +70,7 @@ func _is_chunk_queued_or_generating(chunk_position: Vector3i) -> bool:
 	return false
 
 func _terrain_worker_thread(thread_id: int):
-	VoxelLogger.debug("TERRAIN_GEN", "Terrain worker thread " + str(thread_id) + " started")
+	Logger.debug("TERRAIN_GEN", "Terrain worker thread " + str(thread_id) + " started")
 	
 	while not should_exit:
 		var work_item = _get_next_work_item(thread_id)
@@ -82,7 +82,7 @@ func _terrain_worker_thread(thread_id: int):
 		
 		# Generate terrain for this chunk
 		var chunk_position = work_item.chunk_position
-		VoxelLogger.debug("TERRAIN_GEN", "Thread " + str(thread_id) + " generating terrain for chunk " + str(chunk_position))
+		Logger.debug("TERRAIN_GEN", "Thread " + str(thread_id) + " generating terrain for chunk " + str(chunk_position))
 		
 		var voxel_data = _generate_chunk_terrain(chunk_position)
 		
@@ -174,7 +174,7 @@ func get_stats() -> Dictionary:
 	return get_debug_info()
 
 func shutdown():
-	VoxelLogger.info("TERRAIN_GEN", "Shutting down...")
+	Logger.info("TERRAIN_GEN", "Shutting down...")
 	should_exit = true
 	
 	# Wait for all threads to finish
@@ -183,4 +183,4 @@ func shutdown():
 			thread.wait_to_finish()
 	
 	thread_pool.clear()
-	VoxelLogger.info("TERRAIN_GEN", "Shutdown complete")
+	Logger.info("TERRAIN_GEN", "Shutdown complete")

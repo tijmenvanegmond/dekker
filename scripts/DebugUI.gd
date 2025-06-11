@@ -148,7 +148,15 @@ func update_debug_info():
 			debug_text += "Total Spawned: " + str(mob_stats.total_spawned) + "\n"
 			debug_text += "Spawn Rate: " + str("%.1f" % mob_stats.spawn_rate) + "/sec\n"
 		else:
-			debug_text += "Mob Spawner: Found (no stats method)\n"
+			debug_text += "Active Mobs: " + str(mob_spawner.active_mobs.size()) + "/" + str(mob_spawner.max_mobs) + "\n"
+		
+		# Health statistics for active mobs
+		if mob_spawner.active_mobs.size() > 0:
+			var health_stats = calculate_mob_health_stats(mob_spawner.active_mobs)
+			debug_text += "Avg Health: " + str("%.1f" % health_stats.average) + "/" + str("%.1f" % health_stats.max_possible) + "\n"
+			debug_text += "Size Range: " + str("%.2f" % health_stats.min_size) + " - " + str("%.2f" % health_stats.max_size) + "\n"
+			debug_text += "Healthiest: " + str("%.1f" % health_stats.highest_health) + "hp\n"
+			debug_text += "Weakest: " + str("%.1f" % health_stats.lowest_health) + "hp\n"
 	else:
 		debug_text += "Mob Spawner: Not Found\n"
 	
@@ -167,6 +175,8 @@ func update_debug_info():
 	debug_text += "\n=== DEBUG CONTROLS ===\n"
 	debug_text += "Enter: Spawn Aggressive Mob\n"
 	debug_text += "Space: Spawn Flock (3 mobs)\n"
+	debug_text += "B: Spawn Burst (10 mobs)\n"
+	debug_text += "M: Spawn MORE Mobs (20 mobs)\n"
 	debug_text += "1-5: Change All Mob Behaviors\n"
 	debug_text += "  1=Wander, 2=Seek, 3=Flee, 4=Flock, 5=Aggressive\n"
 	debug_text += "Arrow Keys: Set Wind Direction\n"
@@ -205,25 +215,78 @@ func handle_debug_input():
 	if Input.is_action_just_pressed("ui_up") and mob_interaction_system:
 		if mob_interaction_system.has_method("set_wind"):
 			mob_interaction_system.set_wind(Vector3(0, 0, -1), 20.0)
-			VoxelLogger.info("DEBUG", "Wind set to North")
+			Logger.info("DEBUG", "Wind set to North")
 	
 	if Input.is_action_just_pressed("ui_down") and mob_interaction_system:
 		if mob_interaction_system.has_method("set_wind"):
 			mob_interaction_system.set_wind(Vector3(0, 0, 1), 20.0)
-			VoxelLogger.info("DEBUG", "Wind set to South")
+			Logger.info("DEBUG", "Wind set to South")
 	
 	if Input.is_action_just_pressed("ui_left") and mob_interaction_system:
 		if mob_interaction_system.has_method("set_wind"):
 			mob_interaction_system.set_wind(Vector3(-1, 0, 0), 20.0)
-			VoxelLogger.info("DEBUG", "Wind set to West")
+			Logger.info("DEBUG", "Wind set to West")
 	
 	if Input.is_action_just_pressed("ui_right") and mob_interaction_system:
 		if mob_interaction_system.has_method("set_wind"):
 			mob_interaction_system.set_wind(Vector3(1, 0, 0), 20.0)
-			VoxelLogger.info("DEBUG", "Wind set to East")
+			Logger.info("DEBUG", "Wind set to East")
 	
-	# Explosion effect  
-	if Input.is_action_just_pressed("ui_end") and mob_interaction_system and player:
-		if mob_interaction_system.has_method("create_explosion_at"):
-			mob_interaction_system.create_explosion_at(player.global_position, 15.0, 800.0)
-			VoxelLogger.info("DEBUG", "Created explosion at player position")
+	if Input.is_action_just_pressed("ui_accept") and mob_interaction_system:
+		if mob_interaction_system.has_method("set_wind"):
+			mob_interaction_system.set_wind(Vector3.ZERO, 0.0)
+			Logger.info("DEBUG", "Wind disabled")
+	
+	# Mob spawning controls
+	if Input.is_action_just_pressed("ui_text_backspace") and mob_spawner:  # B key
+		if mob_spawner.has_method("spawn_burst"):
+			mob_spawner.spawn_burst(10)
+			Logger.info("DEBUG", "Spawned burst of 10 mobs")
+	
+	if Input.is_action_just_pressed("ui_text_newline") and mob_spawner:  # M key 
+		if mob_spawner.has_method("spawn_burst"):
+			mob_spawner.spawn_burst(20)
+			Logger.info("DEBUG", "Spawned MASSIVE burst of 20 mobs")
+
+func calculate_mob_health_stats(mobs: Array) -> Dictionary:
+	if mobs.size() == 0:
+		return {
+			"average": 0.0,
+			"max_possible": 0.0,
+			"min_size": 0.0,
+			"max_size": 0.0,
+			"highest_health": 0.0,
+			"lowest_health": 0.0
+		}
+	
+	var total_health = 0.0
+	var total_max_health = 0.0
+	var min_size = 999.0
+	var max_size = 0.0
+	var highest_health = 0.0
+	var lowest_health = 999.0
+	
+	for mob in mobs:
+		if not is_instance_valid(mob) or not mob.is_alive():
+			continue
+			
+		total_health += mob.current_health
+		total_max_health += mob.max_health
+		
+		var mob_size = mob.mob_radius
+		min_size = min(min_size, mob_size)
+		max_size = max(max_size, mob_size)
+		
+		highest_health = max(highest_health, mob.current_health)
+		lowest_health = min(lowest_health, mob.current_health)
+	
+	var valid_count = max(1, mobs.size())
+	
+	return {
+		"average": total_health / valid_count,
+		"max_possible": total_max_health / valid_count,
+		"min_size": min_size,
+		"max_size": max_size,
+		"highest_health": highest_health,
+		"lowest_health": lowest_health
+	}

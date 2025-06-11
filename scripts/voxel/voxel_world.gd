@@ -7,7 +7,7 @@ extends Node3D
 @export var enable_threading: bool = true
 
 # Logging
-var logger: VoxelLogger
+var logger: Logger
 
 var chunks: Dictionary = {}
 var player_position: Vector3
@@ -25,8 +25,8 @@ var chunk_check_timer: Timer
 
 func _ready():
 	# Initialize logging
-	logger = VoxelLogger.get_instance()
-	VoxelLogger.set_console_level(VoxelLogger.LogLevel.INFO)  # Only show INFO and above in console
+	logger = Logger.get_instance()
+	Logger.set_console_level(Logger.LogLevel.INFO)  # Only show INFO and above in console
 	
 	# Initialize threaded generation systems
 	if enable_threading:
@@ -37,9 +37,9 @@ func _ready():
 		terrain_generator.terrain_generated.connect(_on_terrain_generated)
 		mesh_generator.mesh_generated.connect(_on_mesh_generated)
 		
-		VoxelLogger.info("WORLD", "Threaded generation enabled")
+		Logger.info("WORLD", "Threaded generation enabled")
 	else:
-		VoxelLogger.info("WORLD", "Using synchronous generation")
+		Logger.info("WORLD", "Using synchronous generation")
 	
 	# Create timer for periodic chunk checking
 	chunk_check_timer = Timer.new()
@@ -59,7 +59,7 @@ func _ready():
 		camera.position = Vector3(0, 10, 10)
 		camera.look_at(Vector3.ZERO, Vector3.UP)
 		add_child(camera)
-		VoxelLogger.warning("WORLD", "No PlayerController found, created basic camera")
+		Logger.warning("WORLD", "No PlayerController found, created basic camera")
 	else:
 		# Connect to player signals for world editing
 		if player.has_signal("voxel_placed"):
@@ -84,8 +84,8 @@ func _exit_tree():
 		terrain_generator.shutdown()
 	if mesh_generator:
 		mesh_generator.shutdown()
-	VoxelLogger.info("WORLD", "Cleanup completed")
-	VoxelLogger.close_log()
+	Logger.info("WORLD", "Cleanup completed")
+	Logger.close_log()
 
 func generate_initial_chunks():
 	player_position = player.global_position if player else Vector3.ZERO
@@ -134,7 +134,7 @@ func create_chunk(chunk_pos: Vector3i):
 		
 		terrain_generator.queue_terrain_generation(chunk_pos, priority)
 		chunks_waiting_for_terrain[chunk_pos] = chunk
-		VoxelLogger.debug("WORLD", "Queued terrain generation for chunk: " + str(chunk_pos) + " (priority: " + str(priority) + ")")
+		Logger.debug("WORLD", "Queued terrain generation for chunk: " + str(chunk_pos) + " (priority: " + str(priority) + ")")
 	else:
 		# Fallback to synchronous generation
 		chunk.auto_generate = true
@@ -144,14 +144,14 @@ func create_chunk(chunk_pos: Vector3i):
 		# Also regenerate neighbor meshes to fix seams
 		call_deferred("_regenerate_neighbor_meshes", chunk_pos)
 	
-	VoxelLogger.debug("WORLD", "Created chunk at: " + str(chunk_pos))
+	Logger.debug("WORLD", "Created chunk at: " + str(chunk_pos))
 
 func remove_chunk(chunk_pos: Vector3i):
 	if chunks.has(chunk_pos):
 		var chunk = chunks[chunk_pos]
 		chunks.erase(chunk_pos)
 		chunk.queue_free()
-		VoxelLogger.debug("WORLD", "Removed chunk at: " + str(chunk_pos))
+		Logger.debug("WORLD", "Removed chunk at: " + str(chunk_pos))
 
 func world_to_chunk_pos(world_pos: Vector3) -> Vector3i:
 	return Vector3i(
@@ -277,21 +277,21 @@ func _generate_theoretical_height(world_x: int, world_z: int) -> float:
 func _on_voxel_placed(world_pos: Vector3, voxel_type: int):
 	var success = set_voxel_at_world_position(world_pos, voxel_type)
 	if success:
-		VoxelLogger.info("EDIT", "Placed voxel type " + str(voxel_type) + " at " + str(world_pos))
+		Logger.info("EDIT", "Placed voxel type " + str(voxel_type) + " at " + str(world_pos))
 	else:
-		VoxelLogger.warning("EDIT", "Failed to place voxel at " + str(world_pos))
+		Logger.warning("EDIT", "Failed to place voxel at " + str(world_pos))
 
 func _on_voxel_removed(world_pos: Vector3):
 	var success = set_voxel_at_world_position(world_pos, 0)  # 0 = air
 	if success:
-		VoxelLogger.info("EDIT", "Removed voxel at " + str(world_pos))
+		Logger.info("EDIT", "Removed voxel at " + str(world_pos))
 	else:
-		VoxelLogger.warning("EDIT", "Failed to remove voxel at " + str(world_pos))
+		Logger.warning("EDIT", "Failed to remove voxel at " + str(world_pos))
 
 func _on_edit_mode_changed(enabled: bool):
-	VoxelLogger.info("EDIT", "World editing mode: " + ("ENABLED" if enabled else "DISABLED"))
+	Logger.info("EDIT", "World editing mode: " + ("ENABLED" if enabled else "DISABLED"))
 	if enabled:
-		VoxelLogger.info("EDIT", "Controls: Left Click = Place, Right Click = Remove, R = Cycle voxel type, T = Toggle edit mode")
+		Logger.info("EDIT", "Controls: Left Click = Place, Right Click = Remove, R = Cycle voxel type, T = Toggle edit mode")
 
 # Get neighbor chunk for boundary checking
 func get_neighbor_chunk(chunk_pos: Vector3i) -> VoxelChunk:
@@ -317,14 +317,14 @@ func _try_generate_pending_meshes():
 # Signal handlers for threaded generation
 func _on_terrain_generated(chunk_pos: Vector3i, voxel_data: Array[int]):
 	if not chunks.has(chunk_pos):
-		VoxelLogger.warning("WORLD", "Terrain generated for non-existent chunk: " + str(chunk_pos))
+		Logger.warning("WORLD", "Terrain generated for non-existent chunk: " + str(chunk_pos))
 		return
 	
 	var chunk = chunks[chunk_pos]
 	chunk.set_voxel_data(voxel_data)
 	chunks_waiting_for_terrain.erase(chunk_pos)
 	
-	VoxelLogger.debug("WORLD", "Terrain generated for chunk: " + str(chunk_pos))
+	Logger.debug("WORLD", "Terrain generated for chunk: " + str(chunk_pos))
 	
 	# Now queue mesh generation
 	_queue_mesh_generation(chunk_pos, chunk)
@@ -334,24 +334,24 @@ func _on_terrain_generated(chunk_pos: Vector3i, voxel_data: Array[int]):
 
 func _on_mesh_generated(chunk_pos: Vector3i, mesh_arrays: Array):
 	if not chunks.has(chunk_pos):
-		VoxelLogger.warning("WORLD", "Mesh generated for non-existent chunk: " + str(chunk_pos))
+		Logger.warning("WORLD", "Mesh generated for non-existent chunk: " + str(chunk_pos))
 		return
 	
 	var chunk = chunks[chunk_pos]
 	chunk.set_mesh_arrays(mesh_arrays)
 	chunks_waiting_for_mesh.erase(chunk_pos)
 	
-	VoxelLogger.debug("WORLD", "Mesh generated for chunk: " + str(chunk_pos))
+	Logger.debug("WORLD", "Mesh generated for chunk: " + str(chunk_pos))
 
 func _queue_mesh_generation(chunk_pos: Vector3i, chunk: VoxelChunk):
 	if not chunk.can_generate_mesh():
 		# Can't generate mesh yet, neighbors aren't ready
-		VoxelLogger.debug("WORLD", "Cannot generate mesh for chunk " + str(chunk_pos) + " - waiting for dependencies")
+		Logger.debug("WORLD", "Cannot generate mesh for chunk " + str(chunk_pos) + " - waiting for dependencies")
 		return
 	
 	# Check if already generating or waiting
 	if chunks_waiting_for_mesh.has(chunk_pos):
-		VoxelLogger.debug("WORLD", "Chunk " + str(chunk_pos) + " already waiting for mesh generation")
+		Logger.debug("WORLD", "Chunk " + str(chunk_pos) + " already waiting for mesh generation")
 		return
 	
 	var distance = Vector2(chunk_pos.x - player_position.x / chunk_size, chunk_pos.z - player_position.z / chunk_size).length()
@@ -362,20 +362,20 @@ func _queue_mesh_generation(chunk_pos: Vector3i, chunk: VoxelChunk):
 	
 	mesh_generator.queue_mesh_generation(chunk_pos, chunk.voxel_data, chunk, priority)
 	chunks_waiting_for_mesh[chunk_pos] = chunk
-	VoxelLogger.debug("WORLD", "Queued mesh generation for chunk: " + str(chunk_pos) + " (priority: " + str(priority) + ")")
+	Logger.debug("WORLD", "Queued mesh generation for chunk: " + str(chunk_pos) + " (priority: " + str(priority) + ")")
 
 # Method for chunks to request threaded mesh generation
 func request_threaded_mesh_generation(chunk_pos: Vector3i):
 	if not chunks.has(chunk_pos):
-		VoxelLogger.warning("WORLD", "Request for mesh generation of non-existent chunk: " + str(chunk_pos))
+		Logger.warning("WORLD", "Request for mesh generation of non-existent chunk: " + str(chunk_pos))
 		return
 	
 	var chunk = chunks[chunk_pos]
 	if enable_threading and mesh_generator:
-		VoxelLogger.debug("WORLD", "Queuing threaded mesh generation for chunk: " + str(chunk_pos))
+		Logger.debug("WORLD", "Queuing threaded mesh generation for chunk: " + str(chunk_pos))
 		_queue_mesh_generation(chunk_pos, chunk)
 	else:
-		VoxelLogger.warning("WORLD", "Threaded mesh generation not available for chunk: " + str(chunk_pos))
+		Logger.warning("WORLD", "Threaded mesh generation not available for chunk: " + str(chunk_pos))
 
 # Check for chunks that have been waiting too long and force generation
 func _check_for_stuck_chunks():
@@ -388,7 +388,7 @@ func _check_for_stuck_chunks():
 		if chunk and not chunk.voxel_data_ready:
 			# Force synchronous generation for stuck chunks after 5 seconds
 			if current_time - chunk.get_meta("creation_time", 0) > 5000:
-				VoxelLogger.warning("WORLD", "Forcing synchronous terrain generation for stuck chunk: " + str(chunk_pos))
+				Logger.warning("WORLD", "Forcing synchronous terrain generation for stuck chunk: " + str(chunk_pos))
 				chunk.auto_generate = true
 				chunk.generate_chunk()
 				stuck_chunks.append(chunk_pos)
@@ -405,7 +405,7 @@ func _check_for_stuck_chunks():
 		if chunk and chunk.voxel_data_ready and not chunk.mesh_ready:
 			# Force synchronous generation for stuck chunks after 3 seconds
 			if current_time - chunk.get_meta("mesh_queue_time", 0) > 3000:
-				VoxelLogger.warning("WORLD", "Forcing synchronous mesh generation for stuck chunk: " + str(chunk_pos))
+				Logger.warning("WORLD", "Forcing synchronous mesh generation for stuck chunk: " + str(chunk_pos))
 				chunk.try_generate_mesh()
 				stuck_chunks.append(chunk_pos)
 	
@@ -424,7 +424,7 @@ func _force_generate_stuck_chunks():
 		if chunk and not chunk.voxel_data_ready:
 			# Force generation for chunks that have been waiting more than 2 seconds
 			if current_time - chunk.get_meta("creation_time", 0) > 2000:
-				VoxelLogger.warning("WORLD", "Force generating terrain for slow chunk: " + str(chunk_pos))
+				Logger.warning("WORLD", "Force generating terrain for slow chunk: " + str(chunk_pos))
 				chunk.auto_generate = true
 				chunk.generate_chunk()
 				forced_chunks.append(chunk_pos)
@@ -442,7 +442,7 @@ func _force_generate_stuck_chunks():
 			# Force mesh generation for chunks that have been waiting more than 1 second
 			var mesh_queue_time = chunk.get_meta("mesh_queue_time", chunk.get_meta("creation_time", 0))
 			if current_time - mesh_queue_time > 1000:
-				VoxelLogger.warning("WORLD", "Force generating mesh for slow chunk: " + str(chunk_pos))
+				Logger.warning("WORLD", "Force generating mesh for slow chunk: " + str(chunk_pos))
 				chunk.try_generate_mesh()
 				forced_chunks.append(chunk_pos)
 	
@@ -467,12 +467,12 @@ func _periodic_chunk_check():
 				chunks_with_mesh += 1
 	
 	# Log detailed status to file, show summary in console if there are issues
-	VoxelLogger.debug("WORLD", "Chunk Status: " + str(total_chunks) + " total, " + str(chunks_with_data) + " with data, " + str(chunks_with_mesh) + " with mesh")
-	VoxelLogger.debug("WORLD", "Waiting: " + str(chunks_waiting_terrain) + " for terrain, " + str(chunks_waiting_mesh) + " for mesh")
+	Logger.debug("WORLD", "Chunk Status: " + str(total_chunks) + " total, " + str(chunks_with_data) + " with data, " + str(chunks_with_mesh) + " with mesh")
+	Logger.debug("WORLD", "Waiting: " + str(chunks_waiting_terrain) + " for terrain, " + str(chunks_waiting_mesh) + " for mesh")
 	
 	# Show warning in console if chunks are stuck
 	if chunks_waiting_terrain > 0 or chunks_waiting_mesh > 0:
-		VoxelLogger.info("WORLD", "Processing chunks: " + str(chunks_waiting_terrain) + " terrain, " + str(chunks_waiting_mesh) + " mesh pending")
+		Logger.info("WORLD", "Processing chunks: " + str(chunks_waiting_terrain) + " terrain, " + str(chunks_waiting_mesh) + " mesh pending")
 	
 	# Try to generate meshes for chunks that might be ready
 	_try_generate_pending_meshes()
@@ -496,7 +496,7 @@ func _regenerate_neighbor_meshes(chunk_pos: Vector3i):
 			var neighbor_chunk = chunks[neighbor_pos]
 			if neighbor_chunk and neighbor_chunk.mesh_ready and neighbor_chunk.voxel_data_ready:
 				# Regenerate mesh for this neighbor to account for new boundary conditions
-				VoxelLogger.debug("WORLD", "Regenerating mesh for neighbor chunk: " + str(neighbor_pos) + " due to new chunk: " + str(chunk_pos))
+				Logger.debug("WORLD", "Regenerating mesh for neighbor chunk: " + str(neighbor_pos) + " due to new chunk: " + str(chunk_pos))
 				
 				if enable_threading and mesh_generator:
 					# Use threaded mesh generation

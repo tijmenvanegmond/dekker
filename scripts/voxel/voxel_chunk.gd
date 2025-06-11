@@ -120,13 +120,13 @@ func generate_mesh():
 	# Use threaded mesh generation if available
 	var world = get_parent()
 	if world and world.has_method("request_threaded_mesh_generation") and world.enable_threading:
-		VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " requesting threaded mesh generation")
+		Logger.debug("CHUNK", "Chunk " + str(chunk_position) + " requesting threaded mesh generation")
 		world.request_threaded_mesh_generation(chunk_position)
 		is_generating_mesh = false
 		return
 	
 	# Fallback to synchronous generation
-	VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " using synchronous mesh generation")
+	Logger.debug("CHUNK", "Chunk " + str(chunk_position) + " using synchronous mesh generation")
 	var arrays = mesh_generator.generate_chunk_mesh(self)
 	
 	if arrays.size() > 0 and arrays[Mesh.ARRAY_VERTEX] != null and arrays[Mesh.ARRAY_VERTEX].size() > 0:
@@ -143,9 +143,9 @@ func generate_mesh():
 		
 		# Mark mesh as ready
 		mesh_ready = true
-		VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " mesh generated successfully with " + str(arrays[Mesh.ARRAY_VERTEX].size()) + " vertices")
+		Logger.debug("CHUNK", "Chunk " + str(chunk_position) + " mesh generated successfully with " + str(arrays[Mesh.ARRAY_VERTEX].size()) + " vertices")
 	else:
-		VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " generated empty mesh arrays - no visible terrain")
+		Logger.debug("CHUNK", "Chunk " + str(chunk_position) + " generated empty mesh arrays - no visible terrain")
 	
 	is_generating_mesh = false
 
@@ -197,7 +197,7 @@ func try_generate_mesh():
 	if not voxel_data_ready:
 		return  # Our own voxel data not ready yet
 	
-	VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " generating mesh - voxel data ready")
+	Logger.debug("CHUNK", "Chunk " + str(chunk_position) + " generating mesh - voxel data ready")
 	# Generate mesh immediately when voxel data is ready
 	generate_mesh()
 
@@ -206,7 +206,7 @@ func set_voxel_data(new_voxel_data: Array[int]):
 	"""Set voxel data from threaded terrain generation"""
 	voxel_data = new_voxel_data.duplicate()
 	voxel_data_ready = true
-	VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " received voxel data from threaded generation, voxel_data_ready=" + str(voxel_data_ready))
+	Logger.debug("CHUNK", "Chunk " + str(chunk_position) + " received voxel data from threaded generation, voxel_data_ready=" + str(voxel_data_ready))
 	# Try to generate mesh now that we have voxel data
 	try_generate_mesh()
 
@@ -226,9 +226,9 @@ func set_mesh_arrays(mesh_arrays: Array):
 		
 		# Mark mesh as ready
 		mesh_ready = true
-		VoxelLogger.debug("CHUNK", "Chunk " + str(chunk_position) + " received mesh from threaded generation")
+		Logger.debug("CHUNK", "Chunk " + str(chunk_position) + " received mesh from threaded generation")
 	else:
-		VoxelLogger.warning("CHUNK", "Chunk " + str(chunk_position) + " received empty mesh arrays")
+		Logger.warning("CHUNK", "Chunk " + str(chunk_position) + " received empty mesh arrays")
 
 func can_generate_mesh() -> bool:
 	"""Check if this chunk can generate a mesh (has data and neighbors are ready)"""

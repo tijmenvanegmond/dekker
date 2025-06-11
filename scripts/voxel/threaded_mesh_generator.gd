@@ -30,7 +30,7 @@ func _setup_marching_cubes_instances():
 		marching_cubes_instances.append(mc)
 
 func _setup_thread_pool():
-	VoxelLogger.info("MESH_GEN", "Setting up " + str(MAX_THREADS) + " mesh generation threads")
+	Logger.info("MESH_GEN", "Setting up " + str(MAX_THREADS) + " mesh generation threads")
 	
 	for i in MAX_THREADS:
 		var thread = Thread.new()
@@ -83,7 +83,7 @@ func _is_chunk_queued_or_generating(chunk_position: Vector3i) -> bool:
 	return false
 
 func _mesh_worker_thread(thread_id: int):
-	VoxelLogger.debug("MESH_GEN", "Mesh worker thread " + str(thread_id) + " started")
+	Logger.debug("MESH_GEN", "Mesh worker thread " + str(thread_id) + " started")
 	
 	while not should_exit:
 		var work_item = _get_next_work_item(thread_id)
@@ -98,7 +98,7 @@ func _mesh_worker_thread(thread_id: int):
 		var voxel_data = work_item.voxel_data
 		var chunk_ref = work_item.chunk_ref
 		
-		VoxelLogger.debug("MESH_GEN", "Thread " + str(thread_id) + " generating mesh for chunk " + str(chunk_position))
+		Logger.debug("MESH_GEN", "Thread " + str(thread_id) + " generating mesh for chunk " + str(chunk_position))
 		
 		var mesh_arrays = _generate_chunk_mesh(chunk_position, voxel_data, chunk_ref, thread_id)
 		
@@ -155,7 +155,7 @@ func get_debug_info() -> Dictionary:
 	return info
 
 func shutdown():
-	VoxelLogger.info("MESH_GEN", "Shutting down...")
+	Logger.info("MESH_GEN", "Shutting down...")
 	should_exit = true
 	
 	# Wait for all threads to finish
@@ -165,7 +165,7 @@ func shutdown():
 	
 	thread_pool.clear()
 	marching_cubes_instances.clear()
-	VoxelLogger.info("MESH_GEN", "Shutdown complete")
+	Logger.info("MESH_GEN", "Shutdown complete")
 
 # Helper class to hold chunk data for threaded mesh generation
 class ThreadedChunkData extends RefCounted:
