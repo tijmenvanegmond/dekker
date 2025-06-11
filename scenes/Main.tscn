@@ -1,8 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://bvhbxkw1d4lp4"]
+[gd_scene load_steps=8 format=3 uid="uid://bvhbxkw1d4lp4"]
 
 [ext_resource type="Script" uid="uid://b082o64at0neo" path="res://scripts/voxel/voxel_world.gd" id="1_0q5yg"]
-[ext_resource type="Script" uid="uid://bugqcionjyjed" path="res://scripts/PlayerController.gd" id="2_player"]
+[ext_resource type="Script" uid="uid://bugqcionjyjed" path="res://scripts/player/PlayerController.gd" id="2_player"]
 [ext_resource type="Script" uid="uid://0ec53mlf5ic4" path="res://scripts/DebugUI.gd" id="3_debug"]
+[ext_resource type="Script" path="res://scripts/mob/MobSpawner.gd" id="4_mobspawner"]
+[ext_resource type="Script" path="res://scripts/mob/MobInteractionSystem.gd" id="5_mobinteraction"]
 
 [sub_resource type="Environment" id="Environment_1mqyg"]
 background_mode = 1
@@ -40,6 +42,15 @@ shape = SubResource("CapsuleShape3D_1abcd")
 
 [node name="Camera3D" type="Camera3D" parent="VoxelWorld/Player"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+
+[node name="MobSpawner" type="Node3D" parent="."]
+script = ExtResource("4_mobspawner")
+max_mobs = 10
+spawn_radius = 20.0
+spawn_interval = 3.0
+
+[node name="MobInteractionSystem" type="Node" parent="."]
+script = ExtResource("5_mobinteraction")
 
 [node name="DebugUI" type="Control" parent="."]
 layout_mode = 3

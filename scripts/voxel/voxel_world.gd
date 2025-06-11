@@ -48,6 +48,9 @@ func _ready():
 	chunk_check_timer.autostart = true
 	add_child(chunk_check_timer)
 	
+	# Add to voxel_world group for mob system to find
+	add_to_group("voxel_world")
+	
 	# Find player node (assuming it exists)
 	player = get_node_or_null("Player")
 	if not player:
@@ -384,7 +387,7 @@ func _check_for_stuck_chunks():
 		var chunk = chunks_waiting_for_terrain[chunk_pos]
 		if chunk and not chunk.voxel_data_ready:
 			# Force synchronous generation for stuck chunks after 5 seconds
-			if current_time - chunk.get("creation_time", 0) > 5000:
+			if current_time - chunk.get_meta("creation_time", 0) > 5000:
 				VoxelLogger.warning("WORLD", "Forcing synchronous terrain generation for stuck chunk: " + str(chunk_pos))
 				chunk.auto_generate = true
 				chunk.generate_chunk()
@@ -401,7 +404,7 @@ func _check_for_stuck_chunks():
 		var chunk = chunks_waiting_for_mesh[chunk_pos]
 		if chunk and chunk.voxel_data_ready and not chunk.mesh_ready:
 			# Force synchronous generation for stuck chunks after 3 seconds
-			if current_time - chunk.get("mesh_queue_time", 0) > 3000:
+			if current_time - chunk.get_meta("mesh_queue_time", 0) > 3000:
 				VoxelLogger.warning("WORLD", "Forcing synchronous mesh generation for stuck chunk: " + str(chunk_pos))
 				chunk.try_generate_mesh()
 				stuck_chunks.append(chunk_pos)

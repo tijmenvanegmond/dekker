@@ -1,9 +1,11 @@
 extends Control
 
-# Debug UI for voxel world
+# Debug UI for voxel world and mob system
 @onready var debug_label: Label
 var voxel_world: VoxelWorld
 var player: Node3D
+var mob_spawner: Node3D
+var mob_interaction_system: Node
 
 func _ready():
 	# Create debug label
@@ -15,7 +17,7 @@ func _ready():
 	debug_label.add_theme_constant_override("shadow_offset_y", 1)
 	add_child(debug_label)
 	
-	# Find voxel world and player
+	# Find system references
 	voxel_world = get_tree().get_first_node_in_group("voxel_world")
 	if not voxel_world:
 		voxel_world = get_node_or_null("/root/Main/VoxelWorld")
@@ -23,9 +25,18 @@ func _ready():
 	player = get_tree().get_first_node_in_group("player")
 	if not player:
 		player = get_node_or_null("/root/Main/VoxelWorld/Player")
+	
+	mob_spawner = get_tree().get_first_node_in_group("mob_spawner")
+	if not mob_spawner:
+		mob_spawner = get_node_or_null("/root/Main/MobSpawner")
+	
+	mob_interaction_system = get_tree().get_first_node_in_group("mob_interaction_system")
+	if not mob_interaction_system:
+		mob_interaction_system = get_node_or_null("/root/Main/MobInteractionSystem")
 
 func _process(_delta):
 	update_debug_info()
+	handle_debug_input()
 
 func update_debug_info():
 	var debug_text = "=== VOXEL WORLD DEBUG ===\n"
@@ -128,4 +139,91 @@ func update_debug_info():
 	debug_text += "\n=== PERFORMANCE ===\n"
 	debug_text += "FPS: " + str(Engine.get_frames_per_second()) + "\n"
 	
+	# Mob system info
+	debug_text += "\n=== MOB SYSTEM ===\n"
+	if mob_spawner:
+		if mob_spawner.has_method("get_mob_statistics"):
+			var mob_stats = mob_spawner.get_mob_statistics()
+			debug_text += "Active Mobs: " + str(mob_stats.active_mobs) + "/" + str(mob_stats.max_mobs) + "\n"
+			debug_text += "Total Spawned: " + str(mob_stats.total_spawned) + "\n"
+			debug_text += "Spawn Rate: " + str("%.1f" % mob_stats.spawn_rate) + "/sec\n"
+		else:
+			debug_text += "Mob Spawner: Found (no stats method)\n"
+	else:
+		debug_text += "Mob Spawner: Not Found\n"
+	
+	if mob_interaction_system:
+		if mob_interaction_system.has_method("get_interaction_statistics"):
+			var interaction_stats = mob_interaction_system.get_interaction_statistics()
+			debug_text += "Mob Interactions: " + ("✓" if interaction_stats.mob_to_mob_enabled else "✗") + "\n"
+			debug_text += "Terrain Interactions: " + ("✓" if interaction_stats.terrain_enabled else "✗") + "\n"
+			debug_text += "Player Interactions: " + ("✓" if interaction_stats.player_enabled else "✗") + "\n"
+			debug_text += "Wind Effects: " + ("✓" if interaction_stats.wind_enabled else "✗") + "\n"
+		else:
+			debug_text += "Interaction System: Found (no stats method)\n"
+	else:
+		debug_text += "Interaction System: Not Found\n"
+
+	debug_text += "\n=== DEBUG CONTROLS ===\n"
+	debug_text += "Enter: Spawn Aggressive Mob\n"
+	debug_text += "Space: Spawn Flock (3 mobs)\n"
+	debug_text += "1-5: Change All Mob Behaviors\n"
+	debug_text += "  1=Wander, 2=Seek, 3=Flee, 4=Flock, 5=Aggressive\n"
+	debug_text += "Arrow Keys: Set Wind Direction\n"
+	debug_text += "End: Create Explosion\n"
+	
 	debug_label.text = debug_text
+
+func handle_debug_input():
+	# Number keys for behavior changes
+	if Input.is_action_just_pressed("ui_1") and mob_spawner:
+		if mob_spawner.has_method("change_all_behaviors"):
+			# Change to WANDER mode
+			mob_spawner.change_all_behaviors(SphericalMob.BehaviorMode.WANDER)
+	
+	if Input.is_action_just_pressed("ui_2") and mob_spawner:
+		if mob_spawner.has_method("change_all_behaviors"):
+			# Change to SEEK_PLAYER mode
+			mob_spawner.change_all_behaviors(SphericalMob.BehaviorMode.SEEK_PLAYER)
+	
+	if Input.is_action_just_pressed("ui_3") and mob_spawner:
+		if mob_spawner.has_method("change_all_behaviors"):
+			# Change to FLEE_PLAYER mode
+			mob_spawner.change_all_behaviors(SphericalMob.BehaviorMode.FLEE_PLAYER)
+	
+	if Input.is_action_just_pressed("ui_4") and mob_spawner:
+		if mob_spawner.has_method("change_all_behaviors"):
+			# Change to FLOCK mode
+			mob_spawner.change_all_behaviors(SphericalMob.BehaviorMode.FLOCK)
+	
+	if Input.is_action_just_pressed("ui_5") and mob_spawner:
+		if mob_spawner.has_method("change_all_behaviors"):
+			# Change to AGGRESSIVE mode
+			mob_spawner.change_all_behaviors(SphericalMob.BehaviorMode.AGGRESSIVE)
+	
+	# Wind control
+	if Input.is_action_just_pressed("ui_up") and mob_interaction_system:
+		if mob_interaction_system.has_method("set_wind"):
+			mob_interaction_system.set_wind(Vector3(0, 0, -1), 20.0)
+			VoxelLogger.info("DEBUG", "Wind set to North")
+	
+	if Input.is_action_just_pressed("ui_down") and mob_interaction_system:
+		if mob_interaction_system.has_method("set_wind"):
+			mob_interaction_system.set_wind(Vector3(0, 0, 1), 20.0)
+			VoxelLogger.info("DEBUG", "Wind set to South")
+	
+	if Input.is_action_just_pressed("ui_left") and mob_interaction_system:
+		if mob_interaction_system.has_method("set_wind"):
+			mob_interaction_system.set_wind(Vector3(-1, 0, 0), 20.0)
+			VoxelLogger.info("DEBUG", "Wind set to West")
+	
+	if Input.is_action_just_pressed("ui_right") and mob_interaction_system:
+		if mob_interaction_system.has_method("set_wind"):
+			mob_interaction_system.set_wind(Vector3(1, 0, 0), 20.0)
+			VoxelLogger.info("DEBUG", "Wind set to East")
+	
+	# Explosion effect  
+	if Input.is_action_just_pressed("ui_end") and mob_interaction_system and player:
+		if mob_interaction_system.has_method("create_explosion_at"):
+			mob_interaction_system.create_explosion_at(player.global_position, 15.0, 800.0)
+			VoxelLogger.info("DEBUG", "Created explosion at player position")

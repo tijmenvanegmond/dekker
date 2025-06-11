@@ -85,6 +85,9 @@ func get_voxel(x: int, y: int, z: int) -> int:
 		return 0
 	
 	var index = x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE
+	if index < 0 or index >= voxel_data.size():
+		return 0
+	
 	return voxel_data[index]
 
 func get_voxel_safe(x: int, y: int, z: int) -> int:

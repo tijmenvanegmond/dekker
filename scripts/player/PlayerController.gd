@@ -51,6 +51,9 @@ signal edit_mode_changed(enabled: bool)
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	
+	# Add to player group for mob system to find
+	add_to_group("player")
+	
 	# Configure CharacterBody3D for optimal slope climbing
 	floor_max_angle = deg_to_rad(max_climbable_angle)
 	floor_snap_length = 0.8  # Strong snap to help with slopes
@@ -407,7 +410,7 @@ func _setup_edit_sphere():
 	edit_sphere_material.flags_unshaded = true  # Bright and visible
 	edit_sphere_material.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
 	edit_sphere_material.rim_enabled = true  # Add rim lighting for better visibility
-	edit_sphere_material.rim_amount = 0.5
+	edit_sphere_material.rim = 0.5
 	
 	# Create mesh instance
 	edit_sphere = MeshInstance3D.new()
